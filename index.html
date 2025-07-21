@@ -1,4 +1,134 @@
-function updateChart() {
+<!DOCTYPE html><html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>CK Smart Predictor 🔮 - AI Enhanced</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.11.0"></script>
+  <style>
+    body {
+      background: #111;
+      color: #fff;
+      font-family: Arial, sans-serif;
+      padding: 30px;
+      text-align: center;
+    }
+    input, button {
+      font-size: 20px;
+      padding: 10px;
+      border-radius: 8px;
+      border: none;
+      margin: 10px;
+    }
+    input {
+      width: 100px;
+      text-align: center;
+    }
+    button {
+      background-color: #007bff;
+      color: #fff;
+      cursor: pointer;
+    }
+    .result {
+      margin-top: 20px;
+      font-size: 24px;
+      color: #00ff99;
+    }
+    .led {
+      display: inline-block;
+      width: 30px;
+      height: 30px;
+      border-radius: 50%;
+      margin: 10px;
+    }
+    .led.green { background-color: green; }
+    .led.red { background-color: red; }
+    #chartBox {
+      width: 80%;
+      margin: auto;
+      background: #222;
+      padding: 20px;
+      border-radius: 12px;
+    }
+  </style>
+</head>
+<body>
+  <h1>CK Smart Predictor 🔮</h1>
+  <p>နောက်ဆုံးထွက်ခဲ့သောဂဏန်း ၁ လုံး ထည့်ပါ</p>  <input type="number" id="inputNum" min="0" max="9" placeholder="e.g. 4">
+  <button onclick="predict()">ခန့်မှန်းပါ</button>
+  <button onclick="resetData()">♻️ Reset</button>  <div class="result" id="result"></div>
+  <div id="statusBox">
+    <div class="led" id="statusLed"></div>
+    <strong>Powered by HtetMyat</strong>
+  </div>
+  <div id="chartBox">
+    <canvas id="freqChart"></canvas>
+  </div>  <script>
+    let history = JSON.parse(localStorage.getItem('lotto_history')) || [5,2,4,7,1];
+    const statusLed = document.getElementById("statusLed");
+
+    function updateLocalStorage() {
+      localStorage.setItem('lotto_history', JSON.stringify(history));
+    }
+
+    function resetData() {
+      history = [];
+      updateLocalStorage();
+      document.getElementById("result").innerText = "";
+      updateChart();
+      statusLed.className = "led";
+    }
+
+    function predict() {
+      const input = parseInt(document.getElementById("inputNum").value);
+      if (isNaN(input)  input < 0  input > 9) {
+        alert("0 ကနေ 9 ထဲက ဂဏန်းတစ်လုံးသာထည့်ပါ");
+        return;
+      }
+
+      let freq = Array(10).fill(0);
+      history.forEach(n => freq[n]++);
+
+      let prev1 = history[history.length - 1];
+      let prev2 = history[history.length - 2] || prev1;
+      let zigzag = (prev1 > prev2) ? input - 1 : input + 1;
+      zigzag = Math.max(0, Math.min(9, zigzag));
+
+      let repeatAvoid = (prev1 === prev2) ? (input + 2) % 10 : input;
+
+      let smallCount = history.slice(-5).filter(n => n <= 4).length;
+      let bigCount = 5 - smallCount;
+      let preferGroup = smallCount > bigCount ? 'big' : 'small';
+      let groupPick = getLeastUsed(freq, preferGroup === 'big' ? 5 : 0, preferGroup === 'big' ? 9 : 4);
+
+      let rare = freq.indexOf(Math.min(...freq));
+
+      const candidates = [zigzag, repeatAvoid, groupPick, rare];
+      const final = mode(candidates);
+
+      history.push(final);
+      updateLocalStorage();
+
+      const correct = (input === final);
+      statusLed.className = "led " + (correct ? "green" : "red");
+      document.getElementById("result").innerText = 📍 ခန့်မှန်းချက်: ${final} (${correct ? '✔️ မှန်' : '❌ မမှန်'});
+      updateChart();
+    }
+
+    function mode(arr) {
+      return arr.sort((a, b) =>
+        arr.filter(v => v === a).length - arr.filter(v => v === b).length
+      ).pop();
+    }
+
+    function getLeastUsed(freq, min, max) {
+      let minFreq = Math.min(...freq.slice(min, max + 1));
+      for (let i = min; i <= max; i++) {
+        if (freq[i] === minFreq) return i;
+      }
+      return min;
+    }
+
+        function updateChart() {
       const ctx = document.getElementById('freqChart').getContext('2d');
       const data = {
         labels: [...Array(10).keys()],

@@ -1,7 +1,8 @@
-<!DOCTYPE html><html lang="en">
+<!DOCTYPE html>
+<html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>CK Smart Predictor 🔮 - AI Enhanced</title>
+  <title>Voc -🔮 - AI Enhanced</title>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.11.0"></script>
   <style>
@@ -53,17 +54,21 @@
 </head>
 <body>
   <h1>CK Smart Predictor 🔮</h1>
-  <p>နောက်ဆုံးထွက်ခဲ့သောဂဏန်း ၁ လုံး ထည့်ပါ</p>  <input type="number" id="inputNum" min="0" max="9" placeholder="e.g. 4">
+  <p>နောက်ဆုံးထွက်ခဲ့သောဂဏန်း ၁ လုံး ထည့်ပါ</p>
+  <input type="number" id="inputNum" min="0" max="9" placeholder="e.g. 4">
   <button onclick="predict()">ခန့်မှန်းပါ</button>
-  <button onclick="resetData()">♻️ Reset</button>  <div class="result" id="result"></div>
+  <button onclick="resetData()">♻️ Reset</button>
+  <div class="result" id="result"></div>
   <div id="statusBox">
     <div class="led" id="statusLed"></div>
     <strong>Powered by HtetMyat</strong>
   </div>
   <div id="chartBox">
     <canvas id="freqChart"></canvas>
-  </div>  <script>
-    let history = JSON.parse(localStorage.getItem('lotto_history')) || [5,2,4,7,1];
+  </div>
+
+  <script>
+    let history = JSON.parse(localStorage.getItem('lotto_history')) || [5, 2, 4, 7, 1];
     const statusLed = document.getElementById("statusLed");
 
     function updateLocalStorage() {
@@ -78,14 +83,21 @@
       statusLed.className = "led";
     }
 
-    function predict() {
-      const input = parseInt(document.getElementById("inputNum").value);
-      if (isNaN(input) || input < 0 || input > 9) {
-        alert("0 ကနေ 9 ထဲက ဂဏန်းတစ်လုံးသာထည့်ပါ");
-        return;
-      }
+    function detectLogicSwitch(history) {
+      if (history.length < 4) return false;
+      const last3 = history.slice(-3);
+      const bigs = last3.filter(n => n >= 5).length;
+      const smalls = last3.filter(n => n <= 4).length;
+      return (bigs === 0 || smalls === 0); // Sudden shift
+    }
 
-      let freq = Array(10).fill(0);
+    function fallbackSafePredict(history, freq) {
+      let preferSmall = history.slice(-5).filter(n => n <= 4).length > 2;
+      return getLeastUsed(freq, preferSmall ? 0 : 5, preferSmall ? 4 : 9);
+    }
+
+    function enhancedPredict(input, history) {
+      const freq = Array(10).fill(0);
       history.forEach(n => freq[n]++);
 
       let prev1 = history[history.length - 1];
@@ -101,16 +113,34 @@
       let groupPick = getLeastUsed(freq, preferGroup === 'big' ? 5 : 0, preferGroup === 'big' ? 9 : 4);
 
       let rare = freq.indexOf(Math.min(...freq));
+      let fallback = fallbackSafePredict(history, freq);
 
-      const candidates = [zigzag, repeatAvoid, groupPick, rare];
-      const final = mode(candidates);
+      let candidates = [zigzag, repeatAvoid, groupPick, rare];
+
+      if (detectLogicSwitch(history)) {
+        console.warn("⚠️ Logic switch detected. Using fallback prediction.");
+        candidates = [fallback, rare];
+      }
+
+      return mode(candidates);
+    }
+
+    function predict() {
+      const input = parseInt(document.getElementById("inputNum").value);
+      if (isNaN(input) || input < 0 || input > 9) {
+        alert("0 ကနေ 9 ထဲက ဂဏန်းတစ်လုံးသာထည့်ပါ");
+        return;
+      }
+
+      const final = enhancedPredict(input, history);
 
       history.push(final);
       updateLocalStorage();
 
       const correct = (input === final);
       statusLed.className = "led " + (correct ? "green" : "red");
-      document.getElementById("result").innerText = `📍 ခန့်မှန်းချက်: ${final} (${correct ? '✔️ မှန်' : '❌ မမှန်'})`;
+      document.getElementById("result").innerText =
+        `📍 ခန့်မှန်းချက်: ${final} (${correct ? '✔️ မှန်' : '❌ မမှန်'})`;
       updateChart();
     }
 
@@ -155,5 +185,6 @@
     }
 
     updateChart();
-  </script></body>
+  </script>
+</body>
 </html>
